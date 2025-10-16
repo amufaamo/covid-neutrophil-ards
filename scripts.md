@@ -6,10 +6,10 @@ library(tidyverse)
 library(pheatmap)
 
 # Load count dataframe
-all_ <- readRDS('txt/240122_jamb_df.rds')
+all_ <- readRDS('rnaseq_rawcount.rds')
 
 # Load metadata which is id, age, and sex
-id <- read.csv('txt/240115_jamb_table.csv', header=FALSE)
+id <- read.csv('rnaseq_sample_table.csv', header=FALSE)
 names(id) <- c('id', 'age', 'sex')
 
 # make edgeR function
@@ -112,23 +112,17 @@ qlf <- glmQLFTest(fit, coef=2:3)
 
 
 # 2. Extract top 50 genes with large variation
-
 top_genes <- topTags(qlf, n=50)
-
 top_gene_names <- rownames(top_genes$table)
 
 
 # 3. Prepare data for heatmap
-
 heatmap_data <- all_normalized[top_gene_names, ]
 
 
 # 4. Create sample annotation (group information)
-
 annotation_col <- data.frame(
-
   Group = factor(annotation_group)
-
 )
 
 rownames(annotation_col) <- colnames(heatmap_data)
@@ -137,21 +131,15 @@ rownames(annotation_col) <- colnames(heatmap_data)
 # 5. Create heatmap
 
 pheatmap(
-
   heatmap_data,
-
   annotation_col = annotation_col, # Column (sample) annotation
-
   cluster_cols = as.hclust(h),     # Use the original dendrogram as is
-
   scale = "row",                    # Scale along rows (Z-score) for each gene
-
   show_rownames = TRUE,             # Display gene names
-
   show_colnames = TRUE,             # Display sample names
-
   main = "Top 50 Differentially Expressed Genes"
-
 )
+```
+
 
 
