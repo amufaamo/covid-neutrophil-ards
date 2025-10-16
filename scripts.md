@@ -110,10 +110,11 @@ fit <- glmQLFit(norm, design)
 # Specify coefficients related to group (2nd and 3rd) from design matrix column names
 qlf <- glmQLFTest(fit, coef=2:3)
 
+top_genes <- topTags(qlf, n=200)
+all_top_gene_names <- rownames(top_genes$table)
+filtered_gene_names <- all_top_gene_names[!grepl("^IG|^TR", all_top_gene_names)]
+top_gene_names <- filtered_gene_names[1:50]
 
-# 2. Extract top 50 genes with large variation
-top_genes <- topTags(qlf, n=50)
-top_gene_names <- rownames(top_genes$table)
 
 
 # 3. Prepare data for heatmap
