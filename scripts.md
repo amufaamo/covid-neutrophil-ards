@@ -154,14 +154,11 @@ library(pheatmap)
 # --- User's original code ---
 
 
-id <- readRDS('singlecell_')
-
-
+id <- readRDS('singlecell_sample_id.rds')
 names(id) <- c('id', 'sex', 'age')
 
 
 data <- readRDS('txt/240122_jamb_df2.rds')
-
 
 
 
