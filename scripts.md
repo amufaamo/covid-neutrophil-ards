@@ -149,17 +149,11 @@ library(edgeR)
 library(dplyr)
 library(pheatmap)
 
-
-
-
 id <- readRDS('singlecell_sample_id.rds')
 names(id) <- c('id', 'sex', 'age')
 data <- readRDS('singlecell_rawcount.rds')
 
-
-
 # Function to perform normalization using edgeR
-
 myedgeR <- function (dataframe, group, design)
 {
    count <- mutate_all(dataframe, function(x) as.numeric(as.character(gsub(",","", x))))
@@ -182,16 +176,11 @@ sex <- id$sex
 
 # Create design matrix
 design <- model.matrix(~ group + age + sex)
-
 # Perform normalization and dispersion estimation
 dge_obj <- myedgeR(data, group, design)
 
-
 # Get normalized counts (CPM)
 normalized <- cpm(dge_obj, log=TRUE, prior.count=3)
-
-# --- Dendrogram creation (User's original code) ---
-
 
 rho <- cor(normalized, method = "spearman")
 d <- as.dist(1 - rho)
@@ -205,40 +194,20 @@ qlf <- glmQLFTest(fit, coef=2:3)
 
 top_genes <- topTags(qlf, n=200)
 all_top_gene_names <- rownames(top_genes$table)
-
 filtered_gene_names <- all_top_gene_names[!grepl("^IG|^TR", all_top_gene_names)]
-
-
-
-
-# Select top 50 genes from the filtered list
-
-
 top_gene_names <- filtered_gene_names[1:50]
 
 
-
-
 # 3. Prepare data for heatmap
-
-
 heatmap_data <- normalized[top_gene_names, ]
 
 
 
 
 # 4. Create sample annotations (group information)
-
-
 annotation_col <- data.frame(
-
-
  Group = factor(group)
-
-
 )
-
-
 rownames(annotation_col) <- colnames(heatmap_data)
 
 
@@ -248,31 +217,118 @@ rownames(annotation_col) <- colnames(heatmap_data)
 
 
 p2 <-pheatmap(
-
-
  heatmap_data,
-
-
  annotation_col = annotation_col, # Column (sample) annotations
-
-
  cluster_cols = as.hclust(h),     # Use the original dendrogram as is
-
-
  scale = "row",                    # Scale (Z-score) by row for each gene
-
-
  show_rownames = TRUE,             # Display gene names
-
-
  show_colnames = TRUE,             # Display sample names
-
-
  main = "Top 50 Differentially Expressed Genes (IG/TR removed)"
-
-
 )
+```
 
+# Figure3
+```R
+# Download the seurat object below. I cannot upload because this file is big.
+https://drive.google.com/file/d/1mydb6F2V_z8HRQMxFTJFi1kmNJ4QqfXO/view?usp=sharing
+data <- readRDS('240117_jamb_sctransform.rds')
+
+library(Seurat)
+data <- subset(data, subset = !is.na(sample_named))
+markers <- FindMarkers(
+   x,
+   ident.1 = "critical",
+   ident.2 = "severe",
+   group.by = 'condition1',
+   test.use = "MAST", 
+   latent.vars = 'sample_named')
+
+
+library(clusterProfiler)
+source('Rscript/rprofile.r')
+genes <- marker %>% dplyr::filter(p_val_adj < 0.1 & avg_log2FC > 0) %>% rownames()
+source("Rscript/convert_geneID.r")
+convert_geneID(genes, "SYMBOL", "ENTREZID") -> entre
+entre$ENTREZID -> entre
+ego2 <- enrichGO(gene         = entre,
+                OrgDb         = org.Hs.eg.db,
+                keyType       = 'ENTREZID',
+                ont           = "BP",
+                pAdjustMethod = "BH",
+                pvalueCutoff  = 0.01,
+                qvalueCutoff  = 0.05)
+barplot(ego2)
+```
+# Figure4
+```R
+# Download the seurat object below. I cannot upload because this file is big.
+https://drive.google.com/file/d/1mydb6F2V_z8HRQMxFTJFi1kmNJ4QqfXO/view?usp=sharing
+data <- readRDS('240117_jamb_sctransform.rds')
+Idents(data) <- 'condition4'
+SplitObject(data, split.by='condition4') -> data2
+markerlist <- c()
+map(data2, function(x){try(
+   FindMarkers(
+       x,
+       ident.1 = "critical",
+       ident.2 = "severe",
+       group.by = 'condition1',
+       test.use = "MAST",
+       latent.vars = 'sample_named'))}) -> markerlist
+
+d <- function(x){
+   x <- tibble::rownames_to_column(x, 'gene')
+   x <- dplyr::filter(x, !grepl('IG', gene))
+   return(x)
+}
+
+map(markerlist, d) -> markerlist
+lists <- c(4332,2357,6282,567,25801,6279,7305,2495,2512,3579,2215,6280,6283,978,3107,3106,5265,1520,23406,9535,2207,6402,25798,2212,6386,728,8826,5879,391,976,11031,10092,7097,6813,5788,11025,29108,10487,1604,1535,1992,387,527,3689,8635,226,1265)
+
+
+source('scripts/convert_geneID.r')
+convert_geneID(lists, 'ENTREZID', 'SYMBOL')$SYMBOL -> neutrophil_related_genes
+df <- data.frame()
+df <- as.data.frame(neutrophil_related_genes)
+modifym <- function(x){
+   mutate(x, foldchange = case_when(
+       p_val_adj >= 0.1　~ 0,
+       p_val_adj < 0.1 ~ avg_log2FC
+   ))    -> x
+   x %>% dplyr::filter(gene %in% neutrophil_related_genes) -> x
+   x <- x %>% dplyr::select(gene, foldchange)
+   return(x)
+}
+
+
+
+
+map(markerlist, function(x){
+   mutate(x, foldchange = case_when(
+       p_val_adj >= 0.1　~ 0,
+       p_val_adj < 0.1 ~ avg_log2FC
+   ))    -> x
+   x %>% dplyr::filter(gene %in% neutrophil_related_genes) -> x
+   x %>% dplyr::select(gene, foldchange)
+}) -> marker_modify2
+
+
+dplyr::left_join(df, marker_modify2$'Pre-neu', by=c('neutrophil_related_genes' = 'gene')) -> df
+dplyr::left_join(df, marker_modify2$'Pro-neu', by=c('neutrophil_related_genes' = 'gene')) -> df
+dplyr::left_join(df, marker_modify2$'Mature', by=c('neutrophil_related_genes' = 'gene')) -> df
+names(df) <- c('neutrophil_related_genes', 'Pre-neu', 'Pro-neu', 'Mature')
+df <- mutate_all(df, ~replace(., is.na(.), 0))
+write.csv(df, 'df_for_heatmap.csv', row.names = FALSE)
+```
+```python
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+df = pd.read_csv('df_for_heatmap.csv', index_col=1)
+df = df.drop('Unnamed: 0', axis=1)
+sns.heatmap(data=df, vmin=0, cmap="cividis", annot=True, fmt='.2g')
+```
 
 
 
