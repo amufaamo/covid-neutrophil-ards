@@ -151,178 +151,59 @@ library(pheatmap)
 
 
 
-# --- User's original code ---
-
-
 id <- readRDS('singlecell_sample_id.rds')
 names(id) <- c('id', 'sex', 'age')
-
-
-data <- readRDS('txt/240122_jamb_df2.rds')
+data <- readRDS('singlecell_rawcount.rds')
 
 
 
 # Function to perform normalization using edgeR
 
-
 myedgeR <- function (dataframe, group, design)
-
-
 {
-
-
-   count <- mutate_all(dataframe, function(x) as.numeric(as.character(gsub(",",
-
-
-   "", x))))
-
-
+   count <- mutate_all(dataframe, function(x) as.numeric(as.character(gsub(",","", x))))
    count <- as.matrix(count)
-
-
    group <- factor(group)
-
-
-    
-
-
    # Create DGEList object
-
-
-   d <- DGEList(counts = count, group = group)
-
-
-    
-
-
+   d <- DGEList(counts = count, group = group) 
    # Filtering low-expressed genes
-
-
    keep <- filterByExpr(d, design = design) # Using a design matrix is more accurate
-
-
    d <- d[keep, , keep.lib.sizes = FALSE]
-
-
-    
-
-
-   # Calculate normalization factors
-
-
    d <- calcNormFactors(d)
-
-
-    
-
-
-   # Estimate dispersion
-
-
-   # This step is necessary for differential expression analysis
-
-
    d <- estimateDisp(d, design)
-
-
-    
-
-
    return(d)
-
-
 }
 
 
 group <- c('healthy', 'healthy', 'mild', 'mild', 'severe', 'severe', 'healthy','healthy','healthy','healthy', 'severe')
-
-
 age <- id$age
-
-
 sex <- id$sex
 
-
-
-
 # Create design matrix
-
-
 design <- model.matrix(~ group + age + sex)
 
-
-
-
 # Perform normalization and dispersion estimation
-
-
 dge_obj <- myedgeR(data, group, design)
 
 
-
-
 # Get normalized counts (CPM)
-
-
 normalized <- cpm(dge_obj, log=TRUE, prior.count=3)
-
-
-
 
 # --- Dendrogram creation (User's original code) ---
 
 
 rho <- cor(normalized, method = "spearman")
-
-
 d <- as.dist(1 - rho)
-
-
 h <- as.dendrogram(hclust(d, method = "ward.D"))
 
-
-
-
-# Plot dendrogram
-
-
-# plot(h) # This line can be commented out as it's included in the heatmap
-
-
-
-
-# --- Modify heatmap creation code from here ---
-
-
-
-
-# 1. Fit statistical model with edgeR and test for differentially expressed genes
-
-
 fit <- glmQLFit(dge_obj, design)
-
-
 qlf <- glmQLFTest(fit, coef=2:3)
 
 
 
 
-# 2. Extract top genes with large variation (get 200 to leave 50 after filtering)
-
-
 top_genes <- topTags(qlf, n=200)
-
-
 all_top_gene_names <- rownames(top_genes$table)
-
-
-
-
-# ★★★ Exclude IG and TR genes here ★★★
-
-
-# grepl("^IG|^TR", ...) searches for gene names starting with "IG" or "TR"
-
 
 filtered_gene_names <- all_top_gene_names[!grepl("^IG|^TR", all_top_gene_names)]
 
